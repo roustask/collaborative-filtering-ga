@@ -1,7 +1,13 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
-from sklearn.preprocessing import MinMaxScaler
+
+
+# rescale pearson coefficients from (-1,1) to (0,1)
+# NewValue = (((OldValue - OldMin) * (NewMax - NewMin)) / (OldMax - OldMin)) + NewMin
+def rescaler(value):
+    value = (value + 1) / 2
+    return value
 
 
 def prepare_df():
@@ -36,27 +42,25 @@ def fill_with_average(df):
 # find 10 nearest neighbors of user, based on pearson correlation coefficient
 def find_neighbors():
     pearson_values = [pearsonr(users[user_selected], users[i]) for i in range(len(users))]
-    pearson_values = MinMaxScaler().fit_transform(pearson_values)
-    pearson_values = pearson_values[:, 0]
-    top10 = sorted(range(len(pearson_values)), key=lambda i: pearson_values[i], reverse=True)[1:11]  # TODO reverse
+    pearson_values = np.array(pearson_values)[:, 0]
+    top10 = sorted(range(len(pearson_values)), key=lambda i: pearson_values[i], reverse=True)[1:11]
     return users[top10]
 
 
 # evaluation function based on the average pearson correlation between the user that was selected and his neighbors
 def evaluation_function(individual):
-    average_pearson = [pearsonr(individual, neighbor) for neighbor in neighbors]
-    average_pearson = MinMaxScaler().fit_transform(average_pearson)
-    average_pearson = np.mean(average_pearson[:, 0])
+    average_pearson = [pearsonr(individual, neighbor)[0] for neighbor in neighbors]
+    average_pearson = [rescaler(value) for value in average_pearson]
+    average_pearson = np.mean(average_pearson)
     return average_pearson,
 
 
 # repair function used to re-enter movie that user has already rated, and should remain static after each generation run of the GA algorithm
 def repair_function(ind, user):
     ind = np.copy(ind)
-    user1 = np.copy(user)
-    mask = ~np.isnan(user1)
-    ind[mask] = user1[mask]
-    return ind
+    user = np.copy(user)
+    mask = ~np.isnan(user)
+    ind[mask] = user[mask]
 
 
 # select a random user
